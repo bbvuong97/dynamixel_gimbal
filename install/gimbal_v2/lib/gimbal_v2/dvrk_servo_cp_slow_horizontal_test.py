@@ -1,0 +1,1 @@
+/home/stanford/dynamixel_gimbal/src/gimbal_v2/src/scripts/dvrk_servo_cp_slow_horizontal_test.py

@@ -1,0 +1,44 @@
+<launch>
+
+  <!-- Gimbal TF publisher -->
+   <arg name="arm" default="PSM1" />
+  <node
+    pkg="gimbal_v2"
+    type="gimbal_tf_align_dvrk.py"
+    name="dynamixel_gimbal_tf"
+    output="screen">
+
+    <!-- dVRK params -->
+    <param name="dvrk_arm" value="$(arg arm)" />
+
+    <!-- Dynamixel params -->
+    <param name="device" value="/dev/ttyUSB0" />
+    <param name="baudrate" value="57600" />
+    <param name="protocol_version" value="2.0" />
+
+    <param name="dxl1_id" value="1" />
+    <param name="dxl2_id" value="2" />
+    <param name="dxl3_id" value="6" />
+
+    <param name="zero_offset" value="2048" />
+    <param name="multi_turn" value="false" />
+
+    <param name="base_frame" value="gimbal_base" />
+    <param name="joint1_frame" value="joint1" />
+    <param name="joint2_frame" value="joint2" />
+    <param name="joint3_frame" value="joint3" />
+    <param name="rcm_frame" value="rcm" />
+
+    <param name="period" value="0.02" />
+  </node>
+
+  <!-- RViz -->
+  <node
+    pkg="rviz"
+    type="rviz"
+    name="rviz"
+    args="-d $(find gimbal_v2)/src/rviz/gimbal_tf.rviz"
+    output="screen" />
+
+</launch>
+

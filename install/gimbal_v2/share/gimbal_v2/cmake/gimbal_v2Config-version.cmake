@@ -1,0 +1,1 @@
+/home/stanford/dynamixel_gimbal/build/gimbal_v2/ament_cmake_core/gimbal_v2Config-version.cmake

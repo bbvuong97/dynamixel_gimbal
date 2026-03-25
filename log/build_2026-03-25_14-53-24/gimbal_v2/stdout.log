@@ -1,0 +1,55 @@
+-- The C compiler identification is GNU 13.3.0
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found ament_cmake: 2.5.5 (/opt/ros/jazzy/share/ament_cmake/cmake)
+-- Found Python3: /home/stanford/dynamixel_gimbal/.venv/bin/python3 (found version "3.12.3") found components: Interpreter 
+-- Override CMake install command with custom implementation using symlinks instead of copying resources
+-- Configuring done (0.4s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/stanford/dynamixel_gimbal/build/gimbal_v2
+-- Install configuration: ""
+-- Execute custom install script
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/gimbal_v2_tf_align_dvrk.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/gimbal_v2_tf_align_dvrk_V2.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_orientation_vive_position.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_orientation_vive_position_V2.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_vive_position.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_vive_position_V2.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_vive_position_V2_udp.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_servo_cp_slow_horizontal_test.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/teleop_enable_keyboard.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/vive_tracker_udp_to_ros2.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/__pycache__/gimbal_tf_teleop_dvrk.launch.cpython-312.pyc
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf.launch
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_align_dvrk.launch
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_reset_position.launch
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_teleop_dvrk.launch
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_teleop_dvrk.launch.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_teleop_dvrk_orientation_only.launch.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_teleop_dvrk_vive_position_only.launch.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/rviz/gimbal_tf.rviz
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/ament_index/resource_index/package_run_dependencies/gimbal_v2
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/ament_index/resource_index/parent_prefix_path/gimbal_v2
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/environment/ament_prefix_path.sh
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/environment/ament_prefix_path.dsv
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/environment/path.sh
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/environment/path.dsv
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/local_setup.bash
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/local_setup.sh
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/local_setup.zsh
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/local_setup.dsv
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/package.dsv
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/ament_index/resource_index/packages/gimbal_v2
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/cmake/gimbal_v2Config.cmake
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/cmake/gimbal_v2Config-version.cmake
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/package.xml

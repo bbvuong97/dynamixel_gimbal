@@ -1,0 +1,9 @@
+/home/stanford/dynamixel_gimbal/build/gimbal_v2/CMakeFiles/uninstall.dir
+/home/stanford/dynamixel_gimbal/build/gimbal_v2/CMakeFiles/gimbal_v2_uninstall.dir
+/home/stanford/dynamixel_gimbal/build/gimbal_v2/CMakeFiles/test.dir
+/home/stanford/dynamixel_gimbal/build/gimbal_v2/CMakeFiles/edit_cache.dir
+/home/stanford/dynamixel_gimbal/build/gimbal_v2/CMakeFiles/rebuild_cache.dir
+/home/stanford/dynamixel_gimbal/build/gimbal_v2/CMakeFiles/list_install_components.dir
+/home/stanford/dynamixel_gimbal/build/gimbal_v2/CMakeFiles/install.dir
+/home/stanford/dynamixel_gimbal/build/gimbal_v2/CMakeFiles/install/local.dir
+/home/stanford/dynamixel_gimbal/build/gimbal_v2/CMakeFiles/install/strip.dir
