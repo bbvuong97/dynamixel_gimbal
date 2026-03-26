@@ -13,8 +13,6 @@ install(
     src/scripts/dvrk_teleop_gimbal_v2_vive_position_V2.py
     src/scripts/dvrk_teleop_gimbal_v2_vive_position_V2_udp.py
     src/scripts/dvrk_teleop_gimbal_v2.py
-    src/scripts/dvrk_servo_cp_slow_horizontal_test.py
-    src/scripts/teleop_enable_keyboard.py
     src/scripts/vive_tracker_udp_to_ros2.py
   DESTINATION lib/${PROJECT_NAME}
 )

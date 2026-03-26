@@ -1,0 +1,35 @@
+-- Install configuration: ""
+-- Execute custom install script
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/gimbal_v2_tf_align_dvrk.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/gimbal_v2_tf_align_dvrk_V2.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_orientation_vive_position.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_orientation_vive_position_V2.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_vive_position.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_vive_position_V2.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_vive_position_V2_udp.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/vive_tracker_udp_to_ros2.py
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/__pycache__/gimbal_tf_teleop_dvrk.launch.cpython-312.pyc
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf.launch
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_align_dvrk.launch
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_reset_position.launch
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_teleop_dvrk.launch
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_teleop_dvrk.launch.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_teleop_dvrk_orientation_only.launch.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_teleop_dvrk_vive_position_only.launch.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/rviz/gimbal_tf.rviz
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/ament_index/resource_index/package_run_dependencies/gimbal_v2
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/ament_index/resource_index/parent_prefix_path/gimbal_v2
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/environment/ament_prefix_path.sh
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/environment/ament_prefix_path.dsv
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/environment/path.sh
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/environment/path.dsv
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/local_setup.bash
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/local_setup.sh
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/local_setup.zsh
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/local_setup.dsv
+-- Symlinking: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/package.dsv
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/ament_index/resource_index/packages/gimbal_v2
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/cmake/gimbal_v2Config.cmake
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/cmake/gimbal_v2Config-version.cmake
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/package.xml

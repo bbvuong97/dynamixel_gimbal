@@ -1,0 +1,10 @@
+-- Install configuration: ""
+-- Execute custom install script
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/gimbal_v2_tf_align_dvrk.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/gimbal_v2_tf_align_dvrk_V2.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_orientation_vive_position.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_orientation_vive_position_V2.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_vive_position.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_vive_position_V2.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_vive_position_V2_udp.py
+-- Up-to-date symlink: /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2.py

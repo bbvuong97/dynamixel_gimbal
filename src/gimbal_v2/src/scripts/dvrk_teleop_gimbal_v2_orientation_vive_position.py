@@ -2,6 +2,7 @@
 
 import math
 import threading
+import time
 
 import numpy as np
 import PyKDL
@@ -15,6 +16,7 @@ from rclpy.duration import Duration
 from rclpy.time import Time
 
 from geometry_msgs.msg import TransformStamped, Quaternion, PoseStamped
+from sensor_msgs.msg import JointState
 from std_msgs.msg import Bool
 
 import tf2_ros
@@ -102,6 +104,9 @@ class DVRKTeleopGimbalOrientationVive(Node):
         self.psm_pose = None
         self.psm_ref_pose = None
 
+        self.jaw_pose = None
+        self.jaw_ref_pose = None
+
         self.ecm_q = None
         self.R_gimbal_ref = None
 
@@ -117,6 +122,7 @@ class DVRKTeleopGimbalOrientationVive(Node):
         self._warned_waiting_tf = False
         self._warned_waiting_vive = False
         self._warned_waiting_cart_ecm_tf = False
+        self._warned_waiting_jaw_pose = False
 
         # Known fixed rotation from dVRK Cart frame to gimbal_base frame
         self.R_Cart_GimbalBase = np.array([
@@ -164,6 +170,15 @@ class DVRKTeleopGimbalOrientationVive(Node):
             PoseStamped,
             self.psm_cp_topic,
             self.psm_cp_callback,
+            self.sensor_qos,
+            callback_group=self.subscription_group,
+        )
+
+        self.jaw_cp_topic = f'/{self.arm_name}/jaw/measured_js'
+        self.jaw_cp_sub = self.create_subscription(
+            JointState,
+            self.jaw_cp_topic,
+            self.jaw_cp_callback,
             self.sensor_qos,
             callback_group=self.subscription_group,
         )
@@ -242,10 +257,22 @@ class DVRKTeleopGimbalOrientationVive(Node):
         # Toggle publishing is handled by the companion publisher node below.
         pass
 
+    def vive_scale_delta_cb(self, delta: float):
+        with self.state_lock:
+            self.vive_scale = max(0.0, float(self.vive_scale) + float(delta))
+            vive_scale = self.vive_scale
+        self.get_logger().info(f'Vive scale adjusted to {vive_scale:.2f}')
+
     def psm_cp_callback(self, msg: PoseStamped):
         with self.state_lock:
             self.psm_pose = msg
             self._warned_waiting_psm_pose = False
+
+    def jaw_cp_callback(self, msg):
+        with self.state_lock:
+            if msg.position:
+                self.jaw_pose = msg.position[0]  # First joint (jaw angle)
+                self._warned_waiting_jaw_pose = False
 
     def ecm_cp_callback(self, msg: PoseStamped):
         q = msg.pose.orientation
@@ -352,6 +379,7 @@ class DVRKTeleopGimbalOrientationVive(Node):
         with self.state_lock:
             initialized = self.initialized
             psm_pose_msg = self.psm_pose
+            jaw_pose_msg = self.jaw_pose
             ecm_q = self.ecm_q
             vive_current = None if self.vive_current_pos is None else self.vive_current_pos.copy()
             vive_scale = self.vive_scale
@@ -361,6 +389,12 @@ class DVRKTeleopGimbalOrientationVive(Node):
             if not self._warned_waiting_psm_pose:
                 self.get_logger().warning('Waiting for dVRK measured_cp before latching teleop reference')
                 self._warned_waiting_psm_pose = True
+            return
+
+        if jaw_pose_msg is None:
+            if not self._warned_waiting_jaw_pose:
+                self.get_logger().warning('Waiting for dVRK jaw measured_js before latching teleop reference')
+                self._warned_waiting_jaw_pose = True
             return
 
         if ecm_q is None:
@@ -400,6 +434,7 @@ class DVRKTeleopGimbalOrientationVive(Node):
 
             with self.state_lock:
                 self.psm_ref_pose = psm_ref_pose
+                self.jaw_ref_pose = jaw_pose_msg
                 self.R_gimbal_ref = R_gimbal_ref
                 self.vive_ref_pos = vive_ref_pos
                 self.R_ecm_from_cart_latched = R_ecm_from_cart
@@ -411,6 +446,7 @@ class DVRKTeleopGimbalOrientationVive(Node):
 
         with self.state_lock:
             psm_ref_pose = None if self.psm_ref_pose is None else PyKDL.Frame(self.psm_ref_pose.M, self.psm_ref_pose.p)
+            jaw_ref_pose = None if self.jaw_ref_pose is None else self.jaw_ref_pose
             R_gimbal_ref = self.R_gimbal_ref
             vive_ref = None if self.vive_ref_pos is None else self.vive_ref_pos.copy()
             R_ecm_from_vive = self.R_ecm_from_vive
@@ -436,20 +472,121 @@ class DVRKTeleopGimbalOrientationVive(Node):
         goal = PyKDL.Frame(R_goal, p_goal)
         self.arm.servo_cp(goal)
 
-
 class TeleopKeyboardPublisher(Node):
-    def __init__(self, topic='/dvrk_teleop_gimbal/enable'):
+    def __init__(self, teleop_node, topic='/dvrk_teleop_gimbal/enable'):
         super().__init__('dvrk_teleop_keyboard_publisher')
+        self.teleop_node = teleop_node
+
+        self.arm_name = str(self._param('dvrk_arm', self._param('arm', 'PSM1')))
+        self.jaw_rate_rad_s = float(self._param('jaw_key_rate', 1.0))
+        self.jaw_min_rad = float(self._param('jaw_min', 0.0))
+        self.jaw_max_rad = float(self._param('jaw_max', math.radians(80.0)))
+        self.jaw_loop_dt = float(self._param('jaw_loop_dt', 0.02))
+        self.vive_scale_step = float(self._param('vive_scale_step', 0.1))
+
         qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.pub = self.create_publisher(Bool, topic, qos)
+        self.jaw_cmd_pub = self.create_publisher(JointState, f'/{self.arm_name}/jaw/servo_jp', 10)
+        self.jaw_measured_sub = self.create_subscription(
+            JointState,
+            f'/{self.arm_name}/jaw/measured_js',
+            self._jaw_measured_cb,
+            10,
+        )
+
         self.enabled = False
+        self.keys_down = set()
+        self.key_lock = threading.Lock()
+        self.jaw_inc_down = False
+        self.jaw_dec_down = False
+        self.jaw_target = None
+        self.jaw_measured = None
+        self.last_jaw_update_t = time.monotonic()
+        self.jaw_timer = self.create_timer(self.jaw_loop_dt, self._jaw_key_step)
 
-        self.get_logger().info("Keyboard teleop: press 't' to toggle enable")
+        self.get_logger().info("Keyboard teleop: '2' toggles teleop, hold '4' to open jaw, hold '1' to close jaw, Up/Down adjusts Vive scale")
 
-        self.listener = keyboard.Listener(on_press=self.on_key_press)
+        self.listener = keyboard.Listener(on_press=self.on_key_press, on_release=self.on_key_release)
         self.listener.start()
 
+    def _param(self, name, default):
+        if not self.has_parameter(name):
+            self.declare_parameter(name, default)
+        return self.get_parameter(name).value
+
+    def _jaw_measured_cb(self, msg: JointState):
+        if not msg.position:
+            return
+        measured = float(msg.position[0])
+        self.jaw_measured = measured
+        if self.jaw_target is None:
+            self.jaw_target = measured
+
+    def _publish_jaw_position(self, angle_rad):
+        msg = JointState()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.position = [float(angle_rad)]
+        self.jaw_cmd_pub.publish(msg)
+
+    def _jaw_key_step(self):
+        now = time.monotonic()
+        dt = now - self.last_jaw_update_t
+        self.last_jaw_update_t = now
+
+        with self.key_lock:
+            inc = self.jaw_inc_down
+            dec = self.jaw_dec_down
+
+        if not inc and not dec:
+            return
+
+        if self.jaw_target is None:
+            if self.jaw_measured is None:
+                return
+            self.jaw_target = self.jaw_measured
+
+        delta = self.jaw_rate_rad_s * dt
+        if inc and not dec:
+            self.jaw_target += delta
+        elif dec and not inc:
+            self.jaw_target -= delta
+
+        self.jaw_target = min(self.jaw_max_rad, max(self.jaw_min_rad, self.jaw_target))
+        self._publish_jaw_position(self.jaw_target)
+
+    def _matches_key(self, key, target_char):
+        # Handle top-row digits and keypad digits across layouts.
+        try:
+            if key.char == target_char:
+                return True
+        except AttributeError:
+            pass
+
+        vk = getattr(key, 'vk', None)
+        if target_char == '4':
+            return vk in (52, 65460)
+        if target_char == '1':
+            return vk in (49, 65457)
+        return False
+
     def on_key_press(self, key):
+        with self.key_lock:
+            self.keys_down.add(key)
+            if self._matches_key(key, '4'):
+                self.jaw_inc_down = True
+            if self._matches_key(key, '1'):
+                self.jaw_dec_down = True
+
+        if key == keyboard.Key.up:
+            self.teleop_node.vive_scale_delta_cb(self.vive_scale_step)
+            self.get_logger().info(f'Vive scale +{self.vive_scale_step:.2f}')
+            return
+
+        if key == keyboard.Key.down:
+            self.teleop_node.vive_scale_delta_cb(-self.vive_scale_step)
+            self.get_logger().info(f'Vive scale -{self.vive_scale_step:.2f}')
+            return
+
         try:
             if key.char == '2':
                 self.enabled = not self.enabled
@@ -457,17 +594,28 @@ class TeleopKeyboardPublisher(Node):
                 msg.data = self.enabled
                 self.pub.publish(msg)
                 self.get_logger().info(f'Teleop enable = {self.enabled}')
+            elif key.char == '4':
+                self.get_logger().info('Jaw opening while key is held')
+            elif key.char == '1':
+                self.get_logger().info('Jaw closing while key is held')
         except AttributeError:
             pass
+
+    def on_key_release(self, key):
+        with self.key_lock:
+            self.keys_down.discard(key)
+            if self._matches_key(key, '4'):
+                self.jaw_inc_down = False
+            if self._matches_key(key, '1'):
+                self.jaw_dec_down = False
 
 
 def main():
     rclpy.init()
 
-    keyboard_node = TeleopKeyboardPublisher()
-
     ral = crtk.ral('dvrk_teleop_gimbal_orientation_vive_crtk')
     teleop = DVRKTeleopGimbalOrientationVive(ral)
+    keyboard_node = TeleopKeyboardPublisher(teleop)
 
     teleop.get_logger().info('dvrk_teleop_gimbal_orientation_vive node started')
 
