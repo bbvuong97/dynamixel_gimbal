@@ -1,0 +1,68 @@
+<launch>
+  <!-- ================================================================
+       dynamixel_gimbal — Gimbal Teleoperation Launch File
+       ================================================================
+       Starts the gimbal_teleop_node that maps dVRK MTM wrist
+       orientation to Dynamixel pan/tilt servo commands.
+
+       Key arguments (override on the command line with arg:=value):
+         port_name         - serial port for U2D2 adapter
+         baudrate          - Dynamixel bus baudrate
+         pan_servo_id      - Dynamixel ID of the pan servo
+         tilt_servo_id     - Dynamixel ID of the tilt servo
+         mtm_name          - dVRK MTM arm name (MTML or MTMR)
+  -->
+
+  <!-- Serial / hardware arguments -->
+  <arg name="port_name"     default="/dev/ttyUSB0"/>
+  <arg name="baudrate"      default="57600"/>
+  <arg name="pan_servo_id"  default="1"/>
+  <arg name="tilt_servo_id" default="2"/>
+
+  <!-- dVRK MTM arguments -->
+  <arg name="mtm_name"      default="MTML"/>
+  <arg name="mtm_joint_topic"
+       default="/dvrk/$(arg mtm_name)/state_joint_current"/>
+
+  <!-- Mapping tuning -->
+  <arg name="pan_scale"          default="1.0"/>
+  <arg name="tilt_scale"         default="1.0"/>
+  <arg name="pan_offset_rad"     default="0.0"/>
+  <arg name="tilt_offset_rad"    default="0.0"/>
+  <arg name="min_angle_rad"      default="-1.5708"/>
+  <arg name="max_angle_rad"      default="1.5708"/>
+
+  <!-- Motion profile (0 = maximum speed / acceleration) -->
+  <arg name="profile_velocity"     default="0"/>
+  <arg name="profile_acceleration" default="0"/>
+
+  <!-- Deadband: minimum change (rad) before a new command is sent -->
+  <arg name="deadband_rad"  default="0.01"/>
+
+  <!-- ============================================================
+       Teleoperation node
+       ============================================================ -->
+  <node
+    name="gimbal_teleop_node"
+    pkg="dynamixel_gimbal"
+    type="gimbal_teleop_node.py"
+    output="screen"
+    respawn="false">
+
+    <param name="port_name"             value="$(arg port_name)"/>
+    <param name="baudrate"              value="$(arg baudrate)"/>
+    <param name="pan_servo_id"          value="$(arg pan_servo_id)"/>
+    <param name="tilt_servo_id"         value="$(arg tilt_servo_id)"/>
+    <param name="mtm_joint_topic"       value="$(arg mtm_joint_topic)"/>
+    <param name="pan_scale"             value="$(arg pan_scale)"/>
+    <param name="tilt_scale"            value="$(arg tilt_scale)"/>
+    <param name="pan_offset_rad"        value="$(arg pan_offset_rad)"/>
+    <param name="tilt_offset_rad"       value="$(arg tilt_offset_rad)"/>
+    <param name="min_angle_rad"         value="$(arg min_angle_rad)"/>
+    <param name="max_angle_rad"         value="$(arg max_angle_rad)"/>
+    <param name="profile_velocity"      value="$(arg profile_velocity)"/>
+    <param name="profile_acceleration"  value="$(arg profile_acceleration)"/>
+    <param name="deadband_rad"          value="$(arg deadband_rad)"/>
+  </node>
+
+</launch>
