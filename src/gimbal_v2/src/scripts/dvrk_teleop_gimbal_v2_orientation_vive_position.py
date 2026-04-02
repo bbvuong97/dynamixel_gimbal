@@ -499,12 +499,14 @@ class TeleopKeyboardPublisher(Node):
         self.key_lock = threading.Lock()
         self.jaw_inc_down = False
         self.jaw_dec_down = False
+        self.jaw_hold_closed_down = False
+        self.jaw_auto_open_to_max = False
         self.jaw_target = None
         self.jaw_measured = None
         self.last_jaw_update_t = time.monotonic()
         self.jaw_timer = self.create_timer(self.jaw_loop_dt, self._jaw_key_step)
 
-        self.get_logger().info("Keyboard teleop: '2' toggles teleop, hold '4' to open jaw, hold '1' to close jaw, Up/Down adjusts Vive scale")
+        self.get_logger().info("Keyboard teleop: '2' toggles teleop, hold '4' to open jaw, hold '1' to close jaw, hold '7' to force jaw closed (release to open), Up/Down adjusts Vive scale")
 
         self.listener = keyboard.Listener(on_press=self.on_key_press, on_release=self.on_key_release)
         self.listener.start()
@@ -536,6 +538,42 @@ class TeleopKeyboardPublisher(Node):
         with self.key_lock:
             inc = self.jaw_inc_down
             dec = self.jaw_dec_down
+            hold_closed = self.jaw_hold_closed_down
+            auto_open = self.jaw_auto_open_to_max
+
+        delta = self.jaw_rate_rad_s * dt
+
+        if hold_closed:
+            if self.jaw_target is None:
+                if self.jaw_measured is None:
+                    return
+                self.jaw_target = self.jaw_measured
+
+            self.jaw_target -= delta
+            self.jaw_target = min(self.jaw_max_rad, max(self.jaw_min_rad, self.jaw_target))
+            self._publish_jaw_position(self.jaw_target)
+            return
+
+        # Manual key input overrides any pending auto-open ramp.
+        if inc or dec:
+            with self.key_lock:
+                self.jaw_auto_open_to_max = False
+            auto_open = False
+
+        if auto_open:
+            if self.jaw_target is None:
+                if self.jaw_measured is None:
+                    return
+                self.jaw_target = self.jaw_measured
+
+            self.jaw_target += delta
+            self.jaw_target = min(self.jaw_max_rad, max(self.jaw_min_rad, self.jaw_target))
+            self._publish_jaw_position(self.jaw_target)
+
+            if self.jaw_target >= self.jaw_max_rad:
+                with self.key_lock:
+                    self.jaw_auto_open_to_max = False
+            return
 
         if not inc and not dec:
             return
@@ -545,7 +583,6 @@ class TeleopKeyboardPublisher(Node):
                 return
             self.jaw_target = self.jaw_measured
 
-        delta = self.jaw_rate_rad_s * dt
         if inc and not dec:
             self.jaw_target += delta
         elif dec and not inc:
@@ -567,6 +604,8 @@ class TeleopKeyboardPublisher(Node):
             return vk in (52, 65460)
         if target_char == '1':
             return vk in (49, 65457)
+        if target_char == '7':
+            return vk in (55, 65463)
         return False
 
     def on_key_press(self, key):
@@ -576,13 +615,16 @@ class TeleopKeyboardPublisher(Node):
                 self.jaw_inc_down = True
             if self._matches_key(key, '1'):
                 self.jaw_dec_down = True
-
-        if key == keyboard.Key.up:
+            if self._matches_key(key, '7'):
+                self.jaw_hold_closed_down = True
+                self.jaw_auto_open_to_max = False
+        
+        if key == keyboard.Key.up or getattr(key, 'char', None) == '+':
             self.teleop_node.vive_scale_delta_cb(self.vive_scale_step)
             self.get_logger().info(f'Vive scale +{self.vive_scale_step:.2f}')
             return
 
-        if key == keyboard.Key.down:
+        if key == keyboard.Key.down or getattr(key, 'char', None) == '-':
             self.teleop_node.vive_scale_delta_cb(-self.vive_scale_step)
             self.get_logger().info(f'Vive scale -{self.vive_scale_step:.2f}')
             return
@@ -598,6 +640,8 @@ class TeleopKeyboardPublisher(Node):
                 self.get_logger().info('Jaw opening while key is held')
             elif key.char == '1':
                 self.get_logger().info('Jaw closing while key is held')
+            elif key.char == '7':
+                self.get_logger().info('Jaw forced closed while key is held; releasing opens jaw fully')
         except AttributeError:
             pass
 
@@ -608,6 +652,14 @@ class TeleopKeyboardPublisher(Node):
                 self.jaw_inc_down = False
             if self._matches_key(key, '1'):
                 self.jaw_dec_down = False
+            released_hold_closed = self._matches_key(key, '7') and self.jaw_hold_closed_down
+            if self._matches_key(key, '7'):
+                self.jaw_hold_closed_down = False
+            if released_hold_closed:
+                self.jaw_auto_open_to_max = True
+
+        if released_hold_closed:
+            self.get_logger().info('Jaw hold-close released, ramping jaw open to maximum')
 
 
 def main():
