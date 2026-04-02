@@ -439,6 +439,12 @@ class DynamixelGimbalTF(Node):
         # ])  # Known fixed rotation from dVRK Cart frame to gimbal_base frame
 
         # self.R_Cart_GimbalBase = np.array([
+        #     [1, 0, 0],
+        #     [0, 1, 0],
+        #     [0, 0, 1]
+        # ])  # Known fixed rotation from dVRK Cart frame to gimbal_base frame
+
+        # self.R_Cart_GimbalBase = np.array([
         #     [0, 1, 0],
         #     [1, 0, 0],
         #     [0, 0, -1]

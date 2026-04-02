@@ -479,7 +479,7 @@ class TeleopKeyboardPublisher(Node):
 
         self.arm_name = str(self._param('dvrk_arm', self._param('arm', 'PSM1')))
         self.jaw_rate_rad_s = float(self._param('jaw_key_rate', 1.0))
-        self.jaw_min_rad = float(self._param('jaw_min', 0.0))
+        self.jaw_min_rad = float(self._param('jaw_min', math.radians(-20.0)))
         self.jaw_max_rad = float(self._param('jaw_max', math.radians(80.0)))
         self.jaw_loop_dt = float(self._param('jaw_loop_dt', 0.02))
         self.vive_scale_step = float(self._param('vive_scale_step', 0.1))
