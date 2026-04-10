@@ -1,6 +1,8 @@
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/gimbal_v2_tf_align_dvrk.py
+/home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/gimbal_v2_tf_align_dvrk_jaw_trigger.py
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/gimbal_v2_tf_align_dvrk_V2.py
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_orientation_vive_position.py
+/home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_orientation_vive_position_jaw_trigger.py
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_orientation_vive_position_V2.py
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_vive_position.py
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_vive_position_V2.py
@@ -13,6 +15,7 @@
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_reset_position.launch
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_teleop_dvrk.launch
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_teleop_dvrk.launch.py
+/home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_teleop_dvrk_jaw_trigger.launch.py
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_teleop_dvrk_orientation_only.launch.py
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_teleop_dvrk_vive_position_only.launch.py
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/rviz/gimbal_tf.rviz

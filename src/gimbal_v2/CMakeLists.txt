@@ -6,8 +6,10 @@ find_package(ament_cmake REQUIRED)
 install(
   PROGRAMS
     src/scripts/gimbal_v2_tf_align_dvrk.py
+    src/scripts/gimbal_v2_tf_align_dvrk_jaw_trigger.py
     src/scripts/gimbal_v2_tf_align_dvrk_V2.py
     src/scripts/dvrk_teleop_gimbal_v2_orientation_vive_position.py
+    src/scripts/dvrk_teleop_gimbal_v2_orientation_vive_position_jaw_trigger.py
     src/scripts/dvrk_teleop_gimbal_v2_orientation_vive_position_V2.py
     src/scripts/dvrk_teleop_gimbal_v2_vive_position.py
     src/scripts/dvrk_teleop_gimbal_v2_vive_position_V2.py

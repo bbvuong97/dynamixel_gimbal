@@ -1,0 +1,1 @@
+/home/stanford/dynamixel_gimbal/src/gimbal_v2/src/scripts/gimbal_v2_tf_align_dvrk_jaw_trigger.py

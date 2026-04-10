@@ -1,0 +1,1 @@
+/home/stanford/dynamixel_gimbal/src/gimbal_v2/src/scripts/dvrk_teleop_gimbal_v2_orientation_vive_position_jaw_trigger.py
