@@ -1,0 +1,59 @@
+# dynamixel_gimbal — default configuration
+# All values can be overridden at launch time via ROS parameters or
+# launch-file arguments.
+
+# -----------------------------------------------------------------------
+# Hardware
+# -----------------------------------------------------------------------
+port_name: "/dev/ttyUSB0"   # Serial port for the U2D2 adapter
+baudrate: 57600              # Must match servo configuration
+
+# Dynamixel servo IDs (configured in the Dynamixel Wizard)
+pan_servo_id: 1              # Horizontal (yaw) axis servo
+tilt_servo_id: 2             # Vertical (pitch) axis servo
+
+# -----------------------------------------------------------------------
+# dVRK MTM input
+# -----------------------------------------------------------------------
+# Topic that publishes sensor_msgs/JointState from the MTM arm.
+# Common values:
+#   /dvrk/MTML/state_joint_current
+#   /dvrk/MTMR/state_joint_current
+mtm_joint_topic: "/dvrk/MTML/state_joint_current"
+
+# -----------------------------------------------------------------------
+# Angle mapping
+# -----------------------------------------------------------------------
+# Scale and offset applied to the raw MTM wrist angle before sending to
+# the servo:   servo_angle = scale * mtm_angle + offset
+pan_scale:  1.0              # Positive = same direction as MTM yaw
+tilt_scale: 1.0              # Positive = same direction as MTM pitch
+
+pan_offset_rad:  0.0         # Bias for pan  (rad)
+tilt_offset_rad: 0.0         # Bias for tilt (rad)
+
+# -----------------------------------------------------------------------
+# Servo limits
+# -----------------------------------------------------------------------
+# Angles outside [min_angle_rad, max_angle_rad] are clamped before
+# being sent to the servo.
+min_angle_rad: -1.5708       # ≈ −90°
+max_angle_rad:  1.5708       # ≈ +90°
+
+# -----------------------------------------------------------------------
+# Motion profile
+# -----------------------------------------------------------------------
+# 0 = use maximum speed / acceleration
+# See Dynamixel documentation for unit conversion:
+#   velocity     : 0.229 RPM per unit (X-series)
+#   acceleration : 214.577 rev/min² per unit (X-series)
+profile_velocity:     0
+profile_acceleration: 0
+
+# -----------------------------------------------------------------------
+# Deadband
+# -----------------------------------------------------------------------
+# A new goal position is sent only when the commanded angle differs from
+# the last sent angle by more than this value (rad).  Reduces bus traffic
+# and servo hunting when the MTM is held stationary.
+deadband_rad: 0.01           # ≈ 0.57°
