@@ -512,7 +512,7 @@ class TeleopKeyboardPublisher(Node):
         self.last_jaw_update_t = time.monotonic()
         self.jaw_timer = self.create_timer(self.jaw_loop_dt, self._jaw_key_step)
 
-        self.get_logger().info("Keyboard teleop: '2' toggles teleop, hold '4' to open jaw, hold '1' to close jaw, hold '7' to force jaw closed (release to open), Up/Down adjusts Vive scale")
+        self.get_logger().info("Keyboard teleop: Space toggles teleop, hold '4' to open jaw, hold '1' to close jaw, hold '7' to force jaw closed (release to open), Up/Down adjusts Vive scale")
 
         self.listener = keyboard.Listener(on_press=self.on_key_press, on_release=self.on_key_release)
         self.listener.start()
@@ -669,7 +669,7 @@ class TeleopKeyboardPublisher(Node):
             return
 
         try:
-            if key.char == '2':
+            if key == keyboard.Key.space:
                 self.enabled = not self.enabled
                 msg = Bool()
                 msg.data = self.enabled

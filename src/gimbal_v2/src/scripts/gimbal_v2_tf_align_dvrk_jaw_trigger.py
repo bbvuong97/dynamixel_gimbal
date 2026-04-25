@@ -352,7 +352,7 @@ class DynamixelGimbalTF(Node):
         self.jaw_min_rad = float(self._param("jaw_min", math.radians(-20.0)))
         self.jaw_max_rad = float(self._param("jaw_max", math.radians(80.0)))
         self.jaw_motor_min_angle_rad = float(self._param("jaw_motor_min_angle", math.radians(0.0)))
-        self.jaw_motor_max_angle_rad = float(self._param("jaw_motor_max_angle", math.radians(45.0)))
+        self.jaw_motor_max_angle_rad = float(self._param("jaw_motor_max_angle", math.radians(90.0)))
 
         # TF frame names
         self.base_frame = self._param("base_frame", "gimbal_base")
@@ -1046,13 +1046,17 @@ class DynamixelGimbalTF(Node):
         time.sleep(1)
     
     def on_key_press(self, key):
+        if key == keyboard.Key.space:
+            self.command = "switch_torque"
+            return
+
         try:
             if key.char == 'r':
                 self.command = "zero"
             if key.char == 'a':
                 self.command = "align"
-            if key.char == 's' or key.char == '2':  # 's' or Enter key
-                self.command = "switch_torque" # using 't' to overlap with "switch_teleop" in dvrk_teleop_gimbal.py
+            if key.char == 's':
+                self.command = "switch_torque" # using 's' to avoid overlap with teleop toggle key
         except AttributeError:
             pass
 
