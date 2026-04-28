@@ -17,7 +17,7 @@ from rclpy.time import Time
 
 from geometry_msgs.msg import TransformStamped, Quaternion, PoseStamped
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Float64
 
 import tf2_ros
 from tf2_ros import TransformBroadcaster
@@ -158,6 +158,20 @@ class DVRKTeleopGimbalOrientationVive(Node):
         self.vive_scale = float(self._param('vive_scale', 0.2))
         self.vive_deadzone = float(self._param('vive_deadzone', 0.002))
 
+        self.vive_scale_state_pub = self.create_publisher(
+            Float64,
+            '/dvrk_teleop_gimbal/vive_scale',
+            enable_qos,
+        )
+        self.vive_scale_delta_sub = self.create_subscription(
+            Float64,
+            '/dvrk_teleop_gimbal/vive_scale_delta',
+            self.vive_scale_delta_msg_cb,
+            10,
+            callback_group=self.subscription_group,
+        )
+        self._publish_vive_scale_state()
+
         self.timer = self.create_timer(
             self.period_s,
             self.timer_callback,
@@ -261,7 +275,17 @@ class DVRKTeleopGimbalOrientationVive(Node):
         with self.state_lock:
             self.vive_scale = max(0.0, float(self.vive_scale) + float(delta))
             vive_scale = self.vive_scale
+        self._publish_vive_scale_state()
         self.get_logger().info(f'Vive scale adjusted to {vive_scale:.2f}')
+
+    def vive_scale_delta_msg_cb(self, msg: Float64):
+        self.vive_scale_delta_cb(msg.data)
+
+    def _publish_vive_scale_state(self):
+        msg = Float64()
+        with self.state_lock:
+            msg.data = float(self.vive_scale)
+        self.vive_scale_state_pub.publish(msg)
 
     def psm_cp_callback(self, msg: PoseStamped):
         with self.state_lock:

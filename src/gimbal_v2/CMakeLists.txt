@@ -16,6 +16,7 @@ install(
     src/scripts/dvrk_teleop_gimbal_v2_vive_position_V2_udp.py
     src/scripts/dvrk_teleop_gimbal_v2.py
     src/scripts/vive_tracker_udp_to_ros2.py
+    src/scripts/teleop_gui.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

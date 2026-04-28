@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 import math
 import numpy as np
+import threading
 import time
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
 from geometry_msgs.msg import TransformStamped, Quaternion, PoseStamped
 from sensor_msgs.msg import JointState
+from std_msgs.msg import Bool, String
 from tf2_ros import TransformBroadcaster
 
 from pynput import keyboard
@@ -336,6 +339,7 @@ class DynamixelGimbalTF(Node):
         self.LEN_PRESENT_POSITION  = 4
         self.ADDR_OPERATING_MODE   = 11
         self.POSITION_CONTROL_MODE = 3
+        self.EXTENDED_POSITION_CONTROL_MODE = 4
         self.ADDR_MAX_POSITION_LIMIT = 48
         self.ADDR_MIN_POSITION_LIMIT = 52
 
@@ -381,7 +385,7 @@ class DynamixelGimbalTF(Node):
         # Ensure in position mode and torque disabled (so you can backdrive), then add to bulk read
         for dxl_id in [self.dxl1_id, self.dxl2_id, self.dxl3_id, self.dxl4_id, self.dxl_jaw_id]:
             dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(
-                self.portHandler, dxl_id, self.ADDR_OPERATING_MODE, self.POSITION_CONTROL_MODE
+                self.portHandler, dxl_id, self.ADDR_OPERATING_MODE, self.EXTENDED_POSITION_CONTROL_MODE
             )
             if dxl_comm_result != COMM_SUCCESS or dxl_error != 0:
                 self.get_logger().warning(
@@ -490,6 +494,21 @@ class DynamixelGimbalTF(Node):
         self.listener = keyboard.Listener(on_press=self.on_key_press)
         self.listener.start()
 
+        # Torque / align command subscribers and torque state publisher
+        self.torque_state = False
+        torque_state_qos = QoSProfile(
+            depth=1,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            reliability=ReliabilityPolicy.RELIABLE,
+        )
+        self.torque_state_pub = self.create_publisher(Bool, '/dynamixel_gimbal/torque_state', torque_state_qos)
+        self.torque_cmd_sub = self.create_subscription(Bool, '/dynamixel_gimbal/torque_enable_cmd', self._torque_cmd_cb, 10)
+        self.align_cmd_sub = self.create_subscription(Bool, '/dynamixel_gimbal/align_cmd', self._align_cmd_cb, 10)
+        self.cmd_sub = self.create_subscription(String, '/gimbal_commands', self._command_cb, 10)
+
+        # Initial state is torque OFF from startup configuration above.
+        self._publish_torque_state()
+
     def _param(self, name, default):
         self.declare_parameter(name, default)
         return self.get_parameter(name).value
@@ -566,6 +585,11 @@ class DynamixelGimbalTF(Node):
             self.get_logger().error(
                 f"ID {dxl_id} GOAL_POSITION status error: {self.packetHandler.getRxPacketError(dxl_error)}"
             )
+
+        # Position commands require torque enabled; keep GUI status aligned.
+        if not self.torque_state:
+            self.torque_state = True
+            self._publish_torque_state()
 
     def _set_jaw_motor_from_jaw(self, jaw_angle_rad, profile_velocity=50):
         motor_angle = self._jaw_to_motor_angle_rad(jaw_angle_rad)
@@ -771,45 +795,52 @@ class DynamixelGimbalTF(Node):
         """
         Switches the state of the torque (TORQUE.ENABLE vs TORQUE.DISABLE) depending on what the current state is
         """
-
+        new_state = not self.torque_state
+        self._set_torque_state(new_state)
+        self.get_logger().info(f"Torque toggled to {'ON' if new_state else 'OFF'}")
+   
+    def _set_torque_state(self, enable: bool):
+        """Explicitly enable or disable torque on all motors and publish state."""
         for dxl_id in [self.dxl1_id, self.dxl2_id, self.dxl3_id, self.dxl4_id, self.dxl_jaw_id]:
-            # Read current torque state
-            dxl_torque_state, dxl_comm_result, dxl_error = self.packetHandler.read1ByteTxRx(
-                self.portHandler, dxl_id, self.ADDR_TORQUE_ENABLE
-            )
-            if dxl_error != 0:
-                self.get_logger().error(f"Failed to read torque state for ID {dxl_id}")
-                continue
+            val = self.TORQUE_ENABLE if enable else self.TORQUE_DISABLE
+            self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, self.ADDR_TORQUE_ENABLE, val)
+            # LED to indicate torque state
+            led_val = self.LED_ENABLE if enable else self.LED_DISABLE
+            self.packetHandler.write1ByteTxRx(self.portHandler, dxl_id, self.ADDR_LED_RED, led_val)
 
-            # Toggle torque state
-            if dxl_torque_state == self.TORQUE_ENABLE:
-                # Disable torque
-                self.packetHandler.write1ByteTxRx(
-                    self.portHandler, dxl_id, self.ADDR_TORQUE_ENABLE,
-                    self.TORQUE_DISABLE
-                )
+        self.torque_state = bool(enable)
+        self._publish_torque_state()
 
-                # Turn off red LED to indicate torque disabled
-                self.packetHandler.write1ByteTxRx(
-                    self.portHandler, dxl_id, self.ADDR_LED_RED,
-                    self.LED_DISABLE
-                )
+    def _publish_torque_state(self):
+        msg = Bool()
+        msg.data = self.torque_state
+        self.torque_state_pub.publish(msg)
 
-                self.get_logger().info(f"Disabled torque for ID {dxl_id}")
-            else:
-                # Enable torque
-                self.packetHandler.write1ByteTxRx(
-                    self.portHandler, dxl_id, self.ADDR_TORQUE_ENABLE,
-                    self.TORQUE_ENABLE
-                )
+    def _torque_cmd_cb(self, msg: Bool):
+        try:
+            self._set_torque_state(bool(msg.data))
+            self.get_logger().info(f"Torque set to {bool(msg.data)} via command topic")
+        except Exception as exc:
+            self.get_logger().error(f"Failed to set torque state: {exc}")
 
-                # Turn on red LED to indicate torque enabled
-                self.packetHandler.write1ByteTxRx(
-                    self.portHandler, dxl_id, self.ADDR_LED_RED,
-                    self.LED_ENABLE
-                )
+    def _align_cmd_cb(self, msg: Bool):
+        # If a True message is received, run align
+        if not bool(msg.data):
+            return
+        try:
+            self.get_logger().info("Received align command via topic, running align_gimbal_to_dvrk()")
+            # Run alignment in background to avoid blocking timer callbacks
+            threading.Thread(target=self.align_gimbal_to_dvrk, daemon=True).start()
+        except Exception as exc:
+            self.get_logger().error(f"Failed to execute align command: {exc}")
 
-                self.get_logger().info(f"Enabled torque for ID {dxl_id}")
+    def _command_cb(self, msg: String):
+        if msg.data == 'a':
+            self.command = "align"
+        elif msg.data == 'r':
+            self.command = "zero"
+        elif msg.data == 's':
+            self.command = "switch_torque"
    
     def zero_gimbal_position(self):
         """

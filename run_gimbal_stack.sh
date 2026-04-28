@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 TRACKER_CMD="cd \"$SCRIPT_DIR/src/gimbal_v2/src/scripts\" && python3 vive_tracker_udp_to_ros2.py"
-LAUNCH_CMD="cd \"$SCRIPT_DIR\" && source .venv/bin/activate && source /opt/ros/jazzy/setup.bash && source /home/stanford/ros2_ws/install/setup.bash && source install/setup.bash && ros2 launch gimbal_v2 gimbal_tf_teleop_dvrk_jaw_trigger.launch.py arm:=PSM1 use_rviz:=false"
+LAUNCH_CMD="cd \"$SCRIPT_DIR\" && source .venv/bin/activate && source /opt/ros/jazzy/setup.bash && source /home/stanford/ros2_ws/install/setup.bash && source install/setup.bash && ros2 launch gimbal_v2 gimbal_tf_teleop_dvrk_jaw_trigger.launch.py launch_gui:=true"
 
 launch_with_gnome_terminal() {
   gnome-terminal -- bash -lc "$TRACKER_CMD; exec bash" || return 1

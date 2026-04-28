@@ -21,6 +21,12 @@ def generate_launch_description():
         description='Launch RViz2 (set true to enable)'
     )
 
+    launch_gui_arg = DeclareLaunchArgument(
+        'launch_gui',
+        default_value='false',
+        description='Launch Teleop GUI (set true to enable)'
+    )
+
     arm = LaunchConfiguration('arm')
     use_rviz = LaunchConfiguration('use_rviz')
 
@@ -84,10 +90,20 @@ def generate_launch_description():
         condition=IfCondition(use_rviz),
     )
 
+    gui_node = Node(
+        package='gimbal_v2',
+        executable='teleop_gui.py',
+        name='dvrk_teleop_gui',
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('launch_gui')),
+    )
+
     return LaunchDescription([
         arm_arg,
         use_rviz_arg,
+        launch_gui_arg,
         gimbal_tf_node,
         teleop_node,
         rviz_node,
+        gui_node,
     ])

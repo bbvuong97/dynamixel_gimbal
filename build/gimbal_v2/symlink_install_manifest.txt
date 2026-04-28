@@ -9,7 +9,9 @@
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2_vive_position_V2_udp.py
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/dvrk_teleop_gimbal_v2.py
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/vive_tracker_udp_to_ros2.py
+/home/stanford/dynamixel_gimbal/install/gimbal_v2/lib/gimbal_v2/teleop_gui.py
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/__pycache__/gimbal_tf_teleop_dvrk.launch.cpython-312.pyc
+/home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/__pycache__/gimbal_tf_teleop_dvrk_jaw_trigger.launch.cpython-312.pyc
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf.launch
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_align_dvrk.launch
 /home/stanford/dynamixel_gimbal/install/gimbal_v2/share/gimbal_v2/launch/gimbal_tf_reset_position.launch
