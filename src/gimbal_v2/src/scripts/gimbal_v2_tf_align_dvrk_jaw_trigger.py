@@ -488,6 +488,11 @@ class DynamixelGimbalTF(Node):
             JointState, "/dvrk_teleop_gimbal/jaw_backdrive_js", 10
         )
 
+        # Gimbal angles publisher for data recording
+        self.gimbal_angles_pub = self.create_publisher(
+            JointState, "/dynamixel_gimbal/gimbal_angles", 10
+        )
+
         # ---------------- Keyboard listener ----------------
         self.command = None
 
@@ -604,6 +609,14 @@ class DynamixelGimbalTF(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.position = [float(jaw_angle_rad)]
         self.jaw_backdrive_pub.publish(msg)
+
+    def _publish_gimbal_angles(self, theta1, theta2, theta3, theta4, theta_jaw_motor, stamp):
+        msg = JointState()
+        msg.header.stamp = stamp
+        msg.header.frame_id = 'dynamixel_gimbal'
+        msg.name = ['theta1', 'theta2', 'theta3', 'theta4', 'theta_jaw_motor']
+        msg.position = [float(theta1), float(theta2), float(theta3), float(theta4), float(theta_jaw_motor)]
+        self.gimbal_angles_pub.publish(msg)
     
     def psm_cp_callback(self, msg):
         """
@@ -683,6 +696,14 @@ class DynamixelGimbalTF(Node):
             theta_jaw_motor = counts_to_angle_rad(p_jaw, zero_offset=self.zero_offset, multi_turn=self.multi_turn)
             jaw_backdrive = self._motor_to_jaw_angle_rad(theta_jaw_motor)
             self._publish_backdrive_jaw(jaw_backdrive)
+        else:
+            theta_jaw_motor = None
+
+        now = self.get_clock().now().to_msg()
+
+        # Publish gimbal angles for data recording
+        if theta_jaw_motor is not None:
+            self._publish_gimbal_angles(theta1, theta2, theta3, theta4, theta_jaw_motor, now)
 
         # Compose orientations (same structure as your ROS 2 script)
         # Change axes here if your physical gimbal axes differ.
@@ -715,8 +736,6 @@ class DynamixelGimbalTF(Node):
         elif self.command == "switch_torque":
             self.switch_torque_state()
             self.command = None
-
-        now = self.get_clock().now().to_msg()
 
         # base -> joint1
         t = TransformStamped()

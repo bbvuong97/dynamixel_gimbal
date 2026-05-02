@@ -172,6 +172,13 @@ class DVRKTeleopGimbalOrientationVive(Node):
         )
         self._publish_vive_scale_state()
 
+        # Servo CP goal publisher for data recording
+        self.servo_cp_goal_pub = self.create_publisher(
+            PoseStamped,
+            '/dvrk_teleop_gimbal/servo_cp_goal',
+            10,
+        )
+
         self.timer = self.create_timer(
             self.period_s,
             self.timer_callback,
@@ -286,6 +293,21 @@ class DVRKTeleopGimbalOrientationVive(Node):
         with self.state_lock:
             msg.data = float(self.vive_scale)
         self.vive_scale_state_pub.publish(msg)
+
+    def _publish_servo_cp_goal(self, frame):
+        """Publish the servo_cp goal frame as PoseStamped."""
+        msg = PoseStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = 'Cart'  # dVRK Cart frame
+        msg.pose.position.x = frame.p.x()
+        msg.pose.position.y = frame.p.y()
+        msg.pose.position.z = frame.p.z()
+        q = frame.M.GetQuaternion()
+        msg.pose.orientation.x = q[0]
+        msg.pose.orientation.y = q[1]
+        msg.pose.orientation.z = q[2]
+        msg.pose.orientation.w = q[3]
+        self.servo_cp_goal_pub.publish(msg)
 
     def psm_cp_callback(self, msg: PoseStamped):
         with self.state_lock:
@@ -495,6 +517,9 @@ class DVRKTeleopGimbalOrientationVive(Node):
 
         goal = PyKDL.Frame(R_goal, p_goal)
         self.arm.servo_cp(goal)
+
+        # Publish the servo_cp goal for data recording
+        self._publish_servo_cp_goal(goal)
 
 class TeleopKeyboardPublisher(Node):
     def __init__(self, teleop_node, topic='/dvrk_teleop_gimbal/enable'):
