@@ -535,6 +535,7 @@ class TeleopKeyboardPublisher(Node):
 
         qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.pub = self.create_publisher(Bool, topic, qos)
+        self.torque_cmd_pub = self.create_publisher(Bool, '/dynamixel_gimbal/torque_enable_cmd', qos)
         self.jaw_cmd_pub = self.create_publisher(JointState, f'/{self.arm_name}/jaw/servo_jp', 10)
         self.jaw_measured_sub = self.create_subscription(
             JointState,
@@ -558,6 +559,9 @@ class TeleopKeyboardPublisher(Node):
         self.jaw_auto_open_to_max = False
         self.jaw_target = None
         self.jaw_measured = None
+        self.last_backdrive_update_t = time.monotonic()
+        self.jaw_backdrive_rate_gain = float(self._param('jaw_backdrive_rate_gain', 1.0))
+        self.jaw_backdrive_deadzone = float(self._param('jaw_backdrive_deadzone', 0.0))
         self.last_jaw_update_t = time.monotonic()
         self.jaw_timer = self.create_timer(self.jaw_loop_dt, self._jaw_key_step)
 
@@ -590,9 +594,6 @@ class TeleopKeyboardPublisher(Node):
         if not self._teleop_is_active():
             return
 
-        mapped_jaw = float(msg.position[0])
-        mapped_jaw = min(self.jaw_max_rad, max(self.jaw_min_rad, mapped_jaw))
-
         with self.key_lock:
             manual_override = (
                 self.jaw_inc_down
@@ -605,6 +606,30 @@ class TeleopKeyboardPublisher(Node):
         if manual_override:
             return
 
+        now = time.monotonic()
+
+        if self.jaw_target is None:
+            if self.jaw_measured is not None:
+                self.jaw_target = self.jaw_measured
+            else:
+                self.jaw_target = float(msg.position[0])
+
+        if msg.velocity:
+            jaw_rate = float(msg.velocity[0]) * self.jaw_backdrive_rate_gain
+            if abs(jaw_rate) < self.jaw_backdrive_deadzone:
+                jaw_rate = 0.0
+
+            dt = now - self.last_backdrive_update_t
+            self.last_backdrive_update_t = now
+            if dt <= 0.0:
+                return
+
+            self.jaw_target += jaw_rate * dt
+            self.jaw_target = min(self.jaw_max_rad, max(self.jaw_min_rad, self.jaw_target))
+            self._publish_jaw_position(self.jaw_target)
+            return
+
+        mapped_jaw = min(self.jaw_max_rad, max(self.jaw_min_rad, float(msg.position[0])))
         self.jaw_target = mapped_jaw
         self.jaw_measured = mapped_jaw
         self._publish_jaw_position(mapped_jaw)
@@ -723,6 +748,10 @@ class TeleopKeyboardPublisher(Node):
                 msg = Bool()
                 msg.data = self.enabled
                 self.pub.publish(msg)
+                # Invert for torque: torque OFF when teleop is ON (for backdrive), torque ON when teleop is OFF
+                torque_msg = Bool()
+                torque_msg.data = not self.enabled
+                self.torque_cmd_pub.publish(torque_msg)
                 self.get_logger().info(f'Teleop enable = {self.enabled}')
             elif key.char == '4':
                 self.get_logger().info('Jaw opening while key is held')

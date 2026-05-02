@@ -487,6 +487,9 @@ class DynamixelGimbalTF(Node):
         self.jaw_backdrive_pub = self.create_publisher(
             JointState, "/dvrk_teleop_gimbal/jaw_backdrive_js", 10
         )
+        self.state_lock = threading.Lock()
+        self._last_jaw_backdrive_theta = None
+        self._last_jaw_backdrive_t = None
 
         # Gimbal angles publisher for data recording
         self.gimbal_angles_pub = self.create_publisher(
@@ -604,11 +607,36 @@ class DynamixelGimbalTF(Node):
             f"Jaw motor target: motor={math.degrees(motor_angle):.2f} deg for jaw={math.degrees(jaw_angle_rad):.2f} deg"
         )
 
-    def _publish_backdrive_jaw(self, jaw_angle_rad):
+    def _publish_backdrive_jaw(self, jaw_angle_rad, jaw_velocity_rad_s=None):
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.position = [float(jaw_angle_rad)]
+        if jaw_velocity_rad_s is not None:
+            msg.velocity = [float(jaw_velocity_rad_s)]
         self.jaw_backdrive_pub.publish(msg)
+
+    def _estimate_jaw_backdrive_velocity(self, theta_jaw_motor_rad, now_monotonic):
+        with self.state_lock:
+            last_theta = self._last_jaw_backdrive_theta
+            last_t = self._last_jaw_backdrive_t
+            self._last_jaw_backdrive_theta = float(theta_jaw_motor_rad)
+            self._last_jaw_backdrive_t = float(now_monotonic)
+
+        if last_theta is None or last_t is None:
+            return 0.0
+
+        dt = float(now_monotonic) - float(last_t)
+        if dt <= 1e-6:
+            return 0.0
+
+        motor_velocity = (float(theta_jaw_motor_rad) - float(last_theta)) / dt
+
+        motor_span = self.jaw_motor_max_angle_rad - self.jaw_motor_min_angle_rad
+        jaw_span = self.jaw_max_rad - self.jaw_min_rad
+        if motor_span <= 0.0:
+            return 0.0
+
+        return motor_velocity * (jaw_span / motor_span)
 
     def _publish_gimbal_angles(self, theta1, theta2, theta3, theta4, theta_jaw_motor, stamp):
         msg = JointState()
@@ -695,7 +723,8 @@ class DynamixelGimbalTF(Node):
         if p_jaw is not None:
             theta_jaw_motor = counts_to_angle_rad(p_jaw, zero_offset=self.zero_offset, multi_turn=self.multi_turn)
             jaw_backdrive = self._motor_to_jaw_angle_rad(theta_jaw_motor)
-            self._publish_backdrive_jaw(jaw_backdrive)
+            jaw_backdrive_velocity = self._estimate_jaw_backdrive_velocity(theta_jaw_motor, time.monotonic())
+            self._publish_backdrive_jaw(jaw_backdrive, jaw_backdrive_velocity)
         else:
             theta_jaw_motor = None
 
