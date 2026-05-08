@@ -95,6 +95,9 @@ def generate_launch_description():
         executable='teleop_gui.py',
         name='dvrk_teleop_gui',
         output='screen',
+        parameters=[{
+            'arm': arm,
+        }],
         condition=IfCondition(LaunchConfiguration('launch_gui')),
     )
 

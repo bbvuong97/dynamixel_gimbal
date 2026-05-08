@@ -317,6 +317,7 @@ class DynamixelGimbalTF(Node):
     def __init__(self, arm_override=None):
         super().__init__("dynamixel_gimbal_tf")
         self._last_log_times = {}
+        self.available_arms = ("PSM1", "PSM2", "PSM3")
 
         # ---------------- Parameters (ROS 2) ----------------
         self.devicename = self._param("device", "/dev/ttyUSB0")
@@ -419,12 +420,9 @@ class DynamixelGimbalTF(Node):
         
         # ---------------- dVRK measured_cp subscriber ----------------
 
-        # Subscribe to dVRK measured_cp topic corresponding to the selected arm (PSM)
-        self.psm_name = arm_override if arm_override is not None else self._param("dvrk_arm", "PSM1")
-        self.psm_cp_topic = f"/{self.psm_name}/measured_cp"
-        self.psm_cp_sub = self.create_subscription(
-            PoseStamped, self.psm_cp_topic, self.psm_cp_callback, 10
-        )  
+        self.psm_name = self._normalize_arm_name(
+            arm_override if arm_override is not None else self._param("dvrk_arm", "PSM1")
+        )
         self.psm_q = None  # Desired orientation from dVRK (in ECM frame)
 
         # Subscribe to dVRK ECM measured_cp topic for frame transformations
@@ -472,17 +470,9 @@ class DynamixelGimbalTF(Node):
         # ])  # Known fixed rotation from dVRK Cart frame to gimbal_base frame
 
         # ---------------- dVRK measured_js subscriber ----------------
-        self.dvrk_js_topic = f"/{self.psm_name}/measured_js"
-        self.dvrk_js_sub = self.create_subscription(
-            JointState, self.dvrk_js_topic, self.psm_js_callback, 10
-        )
         self.psm_js = None  # Measured joint states from dVRK PSM
-
-        self.dvrk_jaw_topic = f"/{self.psm_name}/jaw/measured_js"
-        self.dvrk_jaw_sub = self.create_subscription(
-            JointState, self.dvrk_jaw_topic, self.psm_jaw_callback, 10
-        )
         self.psm_jaw = None  # Measured jaw angle from dVRK PSM jaw/measured_js
+        self._configure_arm_subscriptions(self.psm_name)
 
         self.jaw_backdrive_pub = self.create_publisher(
             JointState, "/dvrk_teleop_gimbal/jaw_backdrive_js", 10
@@ -513,13 +503,84 @@ class DynamixelGimbalTF(Node):
         self.torque_cmd_sub = self.create_subscription(Bool, '/dynamixel_gimbal/torque_enable_cmd', self._torque_cmd_cb, 10)
         self.align_cmd_sub = self.create_subscription(Bool, '/dynamixel_gimbal/align_cmd', self._align_cmd_cb, 10)
         self.cmd_sub = self.create_subscription(String, '/gimbal_commands', self._command_cb, 10)
+        self.arm_state_pub = self.create_publisher(String, '/dvrk_teleop_gimbal/arm_state', torque_state_qos)
+        self.arm_select_sub = self.create_subscription(String, '/dvrk_teleop_gimbal/arm_select', self._arm_select_cb, torque_state_qos)
 
         # Initial state is torque OFF from startup configuration above.
         self._publish_torque_state()
+        self._publish_arm_state(self.psm_name)
 
     def _param(self, name, default):
         self.declare_parameter(name, default)
         return self.get_parameter(name).value
+
+    def _normalize_arm_name(self, arm_name):
+        arm = str(arm_name).strip().upper()
+        if arm in self.available_arms:
+            return arm
+        self.get_logger().warning(f"Unknown arm '{arm_name}', falling back to PSM1")
+        return 'PSM1'
+
+    def _arm_topic(self, arm_name, suffix):
+        return f"/{arm_name}/{suffix}"
+
+    def _publish_arm_state(self, arm_name):
+        msg = String()
+        msg.data = arm_name
+        self.arm_state_pub.publish(msg)
+
+    def _configure_arm_subscriptions(self, arm_name):
+        arm_name = self._normalize_arm_name(arm_name)
+
+        if getattr(self, 'psm_cp_sub', None) is not None:
+            self.destroy_subscription(self.psm_cp_sub)
+        if getattr(self, 'dvrk_js_sub', None) is not None:
+            self.destroy_subscription(self.dvrk_js_sub)
+        if getattr(self, 'dvrk_jaw_sub', None) is not None:
+            self.destroy_subscription(self.dvrk_jaw_sub)
+
+        self.psm_name = arm_name
+        self.psm_q = None
+        self.psm_js = None
+        self.psm_jaw = None
+        self.initialized = False
+        self.psm_ref_pose = None
+        self.jaw_ref_pose = None
+        self.R_gimbal_ref = None
+        self.vive_ref_pos = None
+        self.R_ecm_from_cart_latched = None
+        self.R_ecm_from_vive = None
+        self._warned_waiting_psm_pose = False
+        self._warned_waiting_jaw_pose = False
+
+        self.psm_cp_sub = self.create_subscription(
+            PoseStamped,
+            self._arm_topic(arm_name, 'measured_cp'),
+            self.psm_cp_callback,
+            10,
+        )
+        self.dvrk_js_sub = self.create_subscription(
+            JointState,
+            self._arm_topic(arm_name, 'measured_js'),
+            self.psm_js_callback,
+            10,
+        )
+        self.dvrk_jaw_sub = self.create_subscription(
+            JointState,
+            self._arm_topic(arm_name, 'jaw/measured_js'),
+            self.psm_jaw_callback,
+            10,
+        )
+
+    def _arm_select_cb(self, msg: String):
+        arm_name = self._normalize_arm_name(msg.data)
+        if arm_name == self.psm_name:
+            self._publish_arm_state(arm_name)
+            return
+
+        self.get_logger().info(f"Switching dVRK arm to {arm_name}")
+        self._configure_arm_subscriptions(arm_name)
+        self._publish_arm_state(arm_name)
 
     def _log_throttle(self, level, period_sec, key, message):
         now = time.monotonic()

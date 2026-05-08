@@ -22,7 +22,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
-from std_msgs.msg import Bool, Float64
+from std_msgs.msg import Bool, Float64, String
 
 
 class TeleopGUINode(Node):
@@ -39,16 +39,28 @@ class TeleopGUINode(Node):
         self.torque_cmd_pub = self.create_publisher(Bool, '/dynamixel_gimbal/torque_enable_cmd', 10)
         self.align_pub = self.create_publisher(Bool, '/dynamixel_gimbal/align_cmd', 10)
         self.vive_scale_delta_pub = self.create_publisher(Float64, '/dvrk_teleop_gimbal/vive_scale_delta', 10)
+        self.arm_select_pub = self.create_publisher(String, '/dvrk_teleop_gimbal/arm_select', state_qos)
 
         self.teleop_state = False
         self.torque_state = False
         self.vive_scale = 0.2
         self.vive_scale_step = 0.1
+        self.available_arms = ('PSM1', 'PSM2', 'PSM3')
+        self.initial_arm = str(self._param('arm', 'PSM1')).strip().upper()
+        if self.initial_arm not in self.available_arms:
+            self.initial_arm = 'PSM1'
+        self.current_arm = self.initial_arm
 
         # Subscriptions to reflect external changes
         self.create_subscription(Bool, '/dvrk_teleop_gimbal/enable', self._teleop_cb, state_qos)
         self.create_subscription(Bool, '/dynamixel_gimbal/torque_state', self._torque_state_cb, state_qos)
         self.create_subscription(Float64, '/dvrk_teleop_gimbal/vive_scale', self._vive_scale_cb, state_qos)
+        self.create_subscription(String, '/dvrk_teleop_gimbal/arm_state', self._arm_state_cb, state_qos)
+
+    def _param(self, name, default):
+        if not self.has_parameter(name):
+            self.declare_parameter(name, default)
+        return self.get_parameter(name).value
 
     def _teleop_cb(self, msg: Bool):
         self.teleop_state = bool(msg.data)
@@ -58,6 +70,18 @@ class TeleopGUINode(Node):
 
     def _vive_scale_cb(self, msg: Float64):
         self.vive_scale = float(msg.data)
+
+    def _arm_state_cb(self, msg: String):
+        if msg.data in self.available_arms:
+            self.current_arm = msg.data
+
+    def publish_arm_select(self, arm_name: str):
+        if arm_name not in self.available_arms:
+            return
+        msg = String()
+        msg.data = arm_name
+        self.arm_select_pub.publish(msg)
+        self.current_arm = arm_name
 
     def publish_teleop(self, enable: bool):
         msg = Bool()
@@ -157,9 +181,25 @@ class TeleopGUIApp:
         self.vive_scale_plus_btn = ttk.Button(frm, text='+', width=4, command=self._on_vive_scale_up, takefocus=False)
         self.vive_scale_plus_btn.grid(column=3, row=2, sticky='w')
 
+        # Active arm selection
+        ttk.Label(frm, text='Active Arm:', style='Label.TLabel').grid(column=0, row=3, sticky='w')
+        self.arm_var = tk.StringVar(value=self.node.initial_arm)
+        self.arm_combo = ttk.Combobox(
+            frm,
+            textvariable=self.arm_var,
+            values=self.node.available_arms,
+            state='readonly',
+            width=8,
+            font=('TkDefaultFont', 13),
+        )
+        self.arm_combo.grid(column=1, row=3, sticky='w')
+        self.arm_combo.bind('<<ComboboxSelected>>', self._on_arm_selected)
+        self.arm_status_label = ttk.Label(frm, text=f'Current: {self.node.current_arm}', style='Display.TLabel')
+        self.arm_status_label.grid(column=2, row=3, columnspan=2, sticky='w')
+
         # Align button
         self.align_btn = ttk.Button(frm, text='Run Align', command=self._on_run_align, width=30, takefocus=False)
-        self.align_btn.grid(column=0, row=3, columnspan=4, pady=(12,0))
+        self.align_btn.grid(column=0, row=4, columnspan=4, pady=(12,0))
 
         for child in frm.winfo_children():
             child.grid_configure(pady=4)
@@ -182,6 +222,9 @@ class TeleopGUIApp:
 
     def _on_run_align(self):
         self.node.publish_align()
+
+    def _on_arm_selected(self, _event):
+        self.node.publish_arm_select(self.arm_var.get())
 
     def _on_vive_scale_up(self):
         self.node.publish_vive_scale_delta(self.node.vive_scale_step)
@@ -217,6 +260,10 @@ class TeleopGUIApp:
             self.torque_label.config(text='ON', foreground='green')
         else:
             self.torque_label.config(text='OFF', foreground='red')
+
+        if self.arm_var.get() != self.node.current_arm:
+            self.arm_var.set(self.node.current_arm)
+        self.arm_status_label.config(text=f'Current: {self.node.current_arm}')
 
         self.vive_scale_var.set(f'{self.node.vive_scale:.2f}')
 

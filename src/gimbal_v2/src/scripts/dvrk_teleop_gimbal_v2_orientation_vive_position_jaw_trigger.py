@@ -17,7 +17,7 @@ from rclpy.time import Time
 
 from geometry_msgs.msg import TransformStamped, Quaternion, PoseStamped
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Bool, Float64
+from std_msgs.msg import Bool, Float64, String
 
 import tf2_ros
 from tf2_ros import TransformBroadcaster
@@ -90,12 +90,12 @@ class DVRKTeleopGimbalOrientationVive(Node):
         super().__init__('dvrk_teleop_gimbal_orientation_vive_node')
 
         self._ral = ral
-        self.arm_name = self._param('dvrk_arm', self._param('arm', 'PSM1'))
+        self.available_arms = ('PSM1', 'PSM2', 'PSM3')
+        self.arm_name = self._normalize_arm_name(self._param('dvrk_arm', self._param('arm', 'PSM1')))
         self.get_logger().info(f'Using dVRK arm: {self.arm_name}')
 
-        self.arm = dvrk.psm(ral, self.arm_name)
-        self.arm.enable()
-        self.arm.home()
+        self._arm_clients = {}
+        self.arm = None
 
         # ---------------- State ----------------
         self.teleop_active = False
@@ -123,6 +123,8 @@ class DVRKTeleopGimbalOrientationVive(Node):
         self._warned_waiting_vive = False
         self._warned_waiting_cart_ecm_tf = False
         self._warned_waiting_jaw_pose = False
+
+        self._arm_subscriptions = {}
 
         # Known fixed rotation from dVRK Cart frame to gimbal_base frame
         self.R_Cart_GimbalBase = np.array([
@@ -172,6 +174,19 @@ class DVRKTeleopGimbalOrientationVive(Node):
         )
         self._publish_vive_scale_state()
 
+        self.arm_state_pub = self.create_publisher(
+            String,
+            '/dvrk_teleop_gimbal/arm_state',
+            enable_qos,
+        )
+        self.arm_select_sub = self.create_subscription(
+            String,
+            '/dvrk_teleop_gimbal/arm_select',
+            self._arm_select_cb,
+            enable_qos,
+            callback_group=self.subscription_group,
+        )
+
         # Servo CP goal publisher for data recording
         self.servo_cp_goal_pub = self.create_publisher(
             PoseStamped,
@@ -186,23 +201,15 @@ class DVRKTeleopGimbalOrientationVive(Node):
         )
 
         # ---------------- Subscriptions ----------------
-        self.psm_cp_topic = f'/{self.arm_name}/measured_cp'
-        self.psm_cp_sub = self.create_subscription(
-            PoseStamped,
-            self.psm_cp_topic,
-            self.psm_cp_callback,
-            self.sensor_qos,
+        self.teleop_enable_sub = self.create_subscription(
+            Bool,
+            '/dvrk_teleop_gimbal/enable',
+            self.teleop_enable_cb,
+            enable_qos,
             callback_group=self.subscription_group,
         )
 
-        self.jaw_cp_topic = f'/{self.arm_name}/jaw/measured_js'
-        self.jaw_cp_sub = self.create_subscription(
-            JointState,
-            self.jaw_cp_topic,
-            self.jaw_cp_callback,
-            self.sensor_qos,
-            callback_group=self.subscription_group,
-        )
+        self._configure_arm(self.arm_name)
 
         self.ecm_cp_sub = self.create_subscription(
             PoseStamped,
@@ -217,14 +224,6 @@ class DVRKTeleopGimbalOrientationVive(Node):
             '/vive_tracker/pose',
             self.vive_cb,
             self.sensor_qos,
-            callback_group=self.subscription_group,
-        )
-
-        self.teleop_enable_sub = self.create_subscription(
-            Bool,
-            '/dvrk_teleop_gimbal/enable',
-            self.teleop_enable_cb,
-            enable_qos,
             callback_group=self.subscription_group,
         )
 
@@ -243,6 +242,77 @@ class DVRKTeleopGimbalOrientationVive(Node):
         if not self.has_parameter(name):
             self.declare_parameter(name, default)
         return self.get_parameter(name).value
+
+    def _normalize_arm_name(self, arm_name):
+        arm = str(arm_name).strip().upper()
+        if arm in self.available_arms:
+            return arm
+        self.get_logger().warning(f"Unknown arm '{arm_name}', falling back to PSM1")
+        return 'PSM1'
+
+    def _arm_topic(self, arm_name, suffix):
+        return f'/{arm_name}/{suffix}'
+
+    def _publish_arm_state(self, arm_name):
+        msg = String()
+        msg.data = arm_name
+        self.arm_state_pub.publish(msg)
+
+    def _configure_arm(self, arm_name):
+        arm_name = self._normalize_arm_name(arm_name)
+
+        if getattr(self, 'psm_cp_sub', None) is not None:
+            self.destroy_subscription(self.psm_cp_sub)
+        if getattr(self, 'jaw_cp_sub', None) is not None:
+            self.destroy_subscription(self.jaw_cp_sub)
+
+        self.arm_name = arm_name
+        self.psm_pose = None
+        self.jaw_pose = None
+        self.psm_ref_pose = None
+        self.jaw_ref_pose = None
+        self.R_gimbal_ref = None
+        self.vive_ref_pos = None
+        self.R_ecm_from_cart_latched = None
+        self.R_ecm_from_vive = None
+        self.initialized = False
+        self._warned_waiting_psm_pose = False
+        self._warned_waiting_jaw_pose = False
+
+        if arm_name not in self._arm_clients:
+            arm = dvrk.psm(self._ral, arm_name)
+            arm.enable()
+            arm.home()
+            self._arm_clients[arm_name] = arm
+        else:
+            self._arm_clients[arm_name].enable()
+
+        self.arm = self._arm_clients[arm_name]
+
+        self.psm_cp_sub = self.create_subscription(
+            PoseStamped,
+            self._arm_topic(arm_name, 'measured_cp'),
+            self.psm_cp_callback,
+            self.sensor_qos,
+            callback_group=self.subscription_group,
+        )
+        self.jaw_cp_sub = self.create_subscription(
+            JointState,
+            self._arm_topic(arm_name, 'jaw/measured_js'),
+            self.jaw_cp_callback,
+            self.sensor_qos,
+            callback_group=self.subscription_group,
+        )
+
+        self.get_logger().info(f'Active dVRK arm set to {arm_name}')
+        self._publish_arm_state(arm_name)
+
+    def _arm_select_cb(self, msg: String):
+        arm_name = self._normalize_arm_name(msg.data)
+        if arm_name != self.arm_name:
+            self._configure_arm(arm_name)
+        else:
+            self._publish_arm_state(arm_name)
 
     # ------------------------------------------------------------------
     # ROS callbacks
@@ -526,7 +596,8 @@ class TeleopKeyboardPublisher(Node):
         super().__init__('dvrk_teleop_keyboard_publisher')
         self.teleop_node = teleop_node
 
-        self.arm_name = str(self._param('dvrk_arm', self._param('arm', 'PSM1')))
+        self.available_arms = ('PSM1', 'PSM2', 'PSM3')
+        self.arm_name = self._normalize_arm_name(self._param('dvrk_arm', self._param('arm', 'PSM1')))
         self.jaw_rate_rad_s = float(self._param('jaw_key_rate', 1.0))
         self.jaw_min_rad = float(self._param('jaw_min', math.radians(-20.0)))
         self.jaw_max_rad = float(self._param('jaw_max', math.radians(80.0)))
@@ -536,13 +607,9 @@ class TeleopKeyboardPublisher(Node):
         qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.pub = self.create_publisher(Bool, topic, qos)
         self.torque_cmd_pub = self.create_publisher(Bool, '/dynamixel_gimbal/torque_enable_cmd', qos)
-        self.jaw_cmd_pub = self.create_publisher(JointState, f'/{self.arm_name}/jaw/servo_jp', 10)
-        self.jaw_measured_sub = self.create_subscription(
-            JointState,
-            f'/{self.arm_name}/jaw/measured_js',
-            self._jaw_measured_cb,
-            10,
-        )
+        self.arm_state_sub = self.create_subscription(String, '/dvrk_teleop_gimbal/arm_state', self._arm_state_cb, qos)
+        self.jaw_cmd_pub = None
+        self.jaw_measured_sub = None
         self.jaw_backdrive_sub = self.create_subscription(
             JointState,
             '/dvrk_teleop_gimbal/jaw_backdrive_js',
@@ -570,10 +637,48 @@ class TeleopKeyboardPublisher(Node):
         self.listener = keyboard.Listener(on_press=self.on_key_press, on_release=self.on_key_release)
         self.listener.start()
 
+        self._configure_arm(self.arm_name)
+
     def _param(self, name, default):
         if not self.has_parameter(name):
             self.declare_parameter(name, default)
         return self.get_parameter(name).value
+
+    def _normalize_arm_name(self, arm_name):
+        arm = str(arm_name).strip().upper()
+        if arm in self.available_arms:
+            return arm
+        return 'PSM1'
+
+    def _arm_topic(self, arm_name, suffix):
+        return f'/{arm_name}/{suffix}'
+
+    def _configure_arm(self, arm_name):
+        arm_name = self._normalize_arm_name(arm_name)
+
+        if getattr(self, 'jaw_measured_sub', None) is not None:
+            self.destroy_subscription(self.jaw_measured_sub)
+        if getattr(self, 'jaw_cmd_pub', None) is not None:
+            self.destroy_publisher(self.jaw_cmd_pub)
+
+        self.arm_name = arm_name
+        self.jaw_cmd_pub = self.create_publisher(JointState, self._arm_topic(arm_name, 'jaw/servo_jp'), 10)
+        self.jaw_measured_sub = self.create_subscription(
+            JointState,
+            self._arm_topic(arm_name, 'jaw/measured_js'),
+            self._jaw_measured_cb,
+            10,
+        )
+        self.jaw_target = None
+        self.jaw_measured = None
+        self.last_backdrive_update_t = time.monotonic()
+        self.last_jaw_update_t = time.monotonic()
+        self.get_logger().info(f'Keyboard jaw control switched to {arm_name}')
+
+    def _arm_state_cb(self, msg: String):
+        arm_name = self._normalize_arm_name(msg.data)
+        if arm_name != self.arm_name:
+            self._configure_arm(arm_name)
 
     def _jaw_measured_cb(self, msg: JointState):
         if not msg.position:
