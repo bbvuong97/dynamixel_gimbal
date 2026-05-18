@@ -341,8 +341,6 @@ class DynamixelGimbalTF(Node):
         self.ADDR_OPERATING_MODE   = 11
         self.POSITION_CONTROL_MODE = 3
         self.EXTENDED_POSITION_CONTROL_MODE = 4
-        self.ADDR_MAX_POSITION_LIMIT = 48
-        self.ADDR_MIN_POSITION_LIMIT = 52
 
         self.ADDR_LED_RED                = 65
         self.LEN_LED_RED                 = 1         # Data Byte Length
@@ -352,12 +350,6 @@ class DynamixelGimbalTF(Node):
         # Zero offset for angles
         self.zero_offset = int(self._param("zero_offset", 2048))
         self.multi_turn = bool(self._param("multi_turn", False))
-
-        # dVRK jaw limits and jaw-motor mapping
-        self.jaw_min_rad = float(self._param("jaw_min", math.radians(-20.0)))
-        self.jaw_max_rad = float(self._param("jaw_max", math.radians(80.0)))
-        self.jaw_motor_min_angle_rad = float(self._param("jaw_motor_min_angle", math.radians(0.0)))
-        self.jaw_motor_max_angle_rad = float(self._param("jaw_motor_max_angle", math.radians(90.0)))
 
         # TF frame names
         self.base_frame = self._param("base_frame", "gimbal_base")
@@ -404,8 +396,6 @@ class DynamixelGimbalTF(Node):
             if not ok:
                 self.get_logger().error(f"groupBulkRead.addParam failed for ID {dxl_id}")
                 raise RuntimeError("Bulk read addParam failed")
-
-        self._configure_jaw_motor_limits()
 
         # TF broadcaster (ROS 1)
         self.br = TransformBroadcaster(self)
@@ -597,41 +587,6 @@ class DynamixelGimbalTF(Node):
     def _clamp(self, value, lo, hi):
         return min(hi, max(lo, value))
 
-    def _jaw_to_motor_angle_rad(self, jaw_angle_rad):
-        jaw = self._clamp(float(jaw_angle_rad), self.jaw_min_rad, self.jaw_max_rad)
-        if self.jaw_max_rad <= self.jaw_min_rad:
-            return self.jaw_motor_min_angle_rad
-        alpha = (jaw - self.jaw_min_rad) / (self.jaw_max_rad - self.jaw_min_rad)
-        # Reversed mapping: min jaw -> motor min angle, max jaw -> motor max angle.
-        return self.jaw_motor_min_angle_rad + alpha * (self.jaw_motor_max_angle_rad - self.jaw_motor_min_angle_rad)
-
-    def _motor_to_jaw_angle_rad(self, motor_angle_rad):
-        mot = self._clamp(float(motor_angle_rad), self.jaw_motor_min_angle_rad, self.jaw_motor_max_angle_rad)
-        span = self.jaw_motor_max_angle_rad - self.jaw_motor_min_angle_rad
-        if span <= 0.0:
-            return self.jaw_min_rad
-        alpha = (mot - self.jaw_motor_min_angle_rad) / span
-        return self.jaw_min_rad + alpha * (self.jaw_max_rad - self.jaw_min_rad)
-
-    def _configure_jaw_motor_limits(self):
-        # These limits bound commanded position-control moves for the jaw motor.
-        min_counts = angle_rad_to_counts(self.jaw_motor_min_angle_rad, self.zero_offset, self.multi_turn)
-        max_counts = angle_rad_to_counts(self.jaw_motor_max_angle_rad, self.zero_offset, self.multi_turn)
-        lo = min(min_counts, max_counts)
-        hi = max(min_counts, max_counts)
-
-        comm1, err1 = self.packetHandler.write4ByteTxRx(
-            self.portHandler, self.dxl_jaw_id, self.ADDR_MIN_POSITION_LIMIT, lo
-        )
-        comm2, err2 = self.packetHandler.write4ByteTxRx(
-            self.portHandler, self.dxl_jaw_id, self.ADDR_MAX_POSITION_LIMIT, hi
-        )
-        if comm1 != COMM_SUCCESS or err1 != 0 or comm2 != COMM_SUCCESS or err2 != 0:
-            self.get_logger().warning(
-                f"Failed to set jaw motor limits for ID {self.dxl_jaw_id} "
-                f"(min={lo}, max={hi})"
-            )
-
     def _write_position_goal(self, dxl_id, position, profile_velocity=50):
         self.packetHandler.write1ByteTxRx(
             self.portHandler, dxl_id, self.ADDR_TORQUE_ENABLE, self.TORQUE_ENABLE
@@ -660,14 +615,6 @@ class DynamixelGimbalTF(Node):
             self.torque_state = True
             self._publish_torque_state()
 
-    def _set_jaw_motor_from_jaw(self, jaw_angle_rad, profile_velocity=50):
-        motor_angle = self._jaw_to_motor_angle_rad(jaw_angle_rad)
-        goal_counts = angle_rad_to_counts(motor_angle, self.zero_offset, self.multi_turn)
-        self._write_position_goal(self.dxl_jaw_id, goal_counts, profile_velocity=profile_velocity)
-        self.get_logger().info(
-            f"Jaw motor target: motor={math.degrees(motor_angle):.2f} deg for jaw={math.degrees(jaw_angle_rad):.2f} deg"
-        )
-
     def _publish_backdrive_jaw(self, jaw_angle_rad, jaw_velocity_rad_s=None):
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
@@ -683,21 +630,22 @@ class DynamixelGimbalTF(Node):
             self._last_jaw_backdrive_theta = float(theta_jaw_motor_rad)
             self._last_jaw_backdrive_t = float(now_monotonic)
 
-        if last_theta is None or last_t is None:
+        if last_theta is None or last_t is None:   
             return 0.0
 
         dt = float(now_monotonic) - float(last_t)
         if dt <= 1e-6:
             return 0.0
 
-        motor_velocity = (float(theta_jaw_motor_rad) - float(last_theta)) / dt
+        delta = float(theta_jaw_motor_rad) - float(last_theta)
+        if delta > math.pi:
+            delta -= 2.0 * math.pi
+        elif delta < -math.pi:
+            delta += 2.0 * math.pi
 
-        motor_span = self.jaw_motor_max_angle_rad - self.jaw_motor_min_angle_rad
-        jaw_span = self.jaw_max_rad - self.jaw_min_rad
-        if motor_span <= 0.0:
-            return 0.0
+        motor_velocity = delta / dt
 
-        return motor_velocity * (jaw_span / motor_span)
+        return motor_velocity
 
     def _publish_gimbal_angles(self, theta1, theta2, theta3, theta4, theta_jaw_motor, stamp):
         msg = JointState()
@@ -783,7 +731,8 @@ class DynamixelGimbalTF(Node):
 
         if p_jaw is not None:
             theta_jaw_motor = counts_to_angle_rad(p_jaw, zero_offset=self.zero_offset, multi_turn=self.multi_turn)
-            jaw_backdrive = self._motor_to_jaw_angle_rad(theta_jaw_motor)
+            # Backdrive publishes the raw jaw motor angle without position-control mapping.
+            jaw_backdrive = theta_jaw_motor
             jaw_backdrive_velocity = self._estimate_jaw_backdrive_velocity(theta_jaw_motor, time.monotonic())
             self._publish_backdrive_jaw(jaw_backdrive, jaw_backdrive_velocity)
         else:
@@ -971,11 +920,6 @@ class DynamixelGimbalTF(Node):
             self._write_position_goal(dxl_id, position, profile_velocity=50)
 
         time.sleep(1)
-
-        # Reset jaw motor last to 0 degrees motor angle per requirement.
-        jaw_reset_counts = angle_rad_to_counts(self.jaw_motor_min_angle_rad, self.zero_offset, self.multi_turn)
-        self._write_position_goal(self.dxl_jaw_id, jaw_reset_counts, profile_velocity=50)
-        self.get_logger().info("Jaw motor reset to 0.00 deg")
 
         # for dxl_id in zero_positions.keys():
         #     # Disable torque
@@ -1175,13 +1119,6 @@ class DynamixelGimbalTF(Node):
         for dxl_id, position in goal_positions.items():
             self._write_position_goal(dxl_id, position, profile_velocity=50)
             time.sleep(1) # Add delay to allow joint by joint movement
-
-        # Align jaw motor last from dVRK jaw/measured_js using linear mapping.
-        if self.psm_jaw is None:
-            self.get_logger().warning("No dVRK jaw/measured_js available for jaw motor alignment.")
-        else:
-            self._set_jaw_motor_from_jaw(self.psm_jaw, profile_velocity=50)
-            time.sleep(1)
 
         time.sleep(1)
     
