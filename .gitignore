@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+
+# ROS / catkin
+devel/
+build/
+install/
+*.pyc
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

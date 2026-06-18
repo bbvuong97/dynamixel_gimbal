@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>dynamixel_gimbal</name>
+  <version>0.1.0</version>
+  <description>
+    Dynamixel gimbal teleoperation for the da Vinci Research Kit (dVRK).
+    Maps dVRK MTM wrist orientation to pan/tilt commands sent to
+    Dynamixel servo motors via the Dynamixel SDK.
+  </description>
+
+  <maintainer email="bbvuong97@example.com">bbvuong97</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+
+  <exec_depend>python3-numpy</exec_depend>
+
+  <export>
+    <rosdep>
+      <rosdep name="dynamixel-sdk" os="ubuntu" package="python3-dynamixel-sdk"/>
+    </rosdep>
+  </export>
+</package>
